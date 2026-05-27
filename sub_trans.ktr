@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<transformation>
+  <info>
+    <name>sub_trans</name>
+  </info>
+  <step>
+    <name>Run Another Leaf</name>
+    <filename>${Internal.Entry.Current.Directory}/leaf.ktr</filename>
+  </step>
+</transformation>

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<job>
+  <name>sub_job</name>
+  <entries>
+    <entry>
+      <name>Leaf Reference</name>
+      <filename>${Internal.Entry.Current.Directory}/leaf.ktr</filename>
+    </entry>
+    <entry>
+      <name>Circular Reference to Parent</name>
+      <filename>${Internal.Entry.Current.Directory}/parent.kjb</filename>
+    </entry>
+  </entries>
+</job>

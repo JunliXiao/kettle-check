@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<job>
+  <name>parent_job</name>
+  <entries>
+    <entry>
+      <name>Sub Job Reference</name>
+      <filename>${Internal.Entry.Current.Directory}/sub_job.kjb</filename>
+    </entry>
+    <entry>
+      <name>Sub Trans Reference</name>
+      <filename>${Internal.Entry.Current.Directory}/sub_trans.ktr</filename>
+    </entry>
+  </entries>
+</job>

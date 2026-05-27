@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<transformation>
+  <info>
+    <name>leaf_trans</name>
+  </info>
+  <step>
+    <name>Dummy Step</name>
+    <type>Dummy</type>
+  </step>
+</transformation>
