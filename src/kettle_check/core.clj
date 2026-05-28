@@ -5,8 +5,8 @@
   (:gen-class))
 
 ;; Define variables for the program as requested
-(def KETTLE-WORKFLOW-ROOT "F:/tech-survey/lab-projects/kettle-check")
-(def TARGET-KJB "sample.kjb")
+(def KETTLE-WORKFLOW-ROOT "E:/kettle-etl-workflow_MSSQL")
+(def TARGET-KJB "E:\\kettle-etl-workflow_MSSQL\\control\\ETL_C_RERUN.kjb")
 
 (defn filename-tag?
   "Checks if a given tag is a :filename tag (case-insensitive keyword or string check)."
@@ -33,7 +33,7 @@
     (mapcat extract-filenames node)
 
     :else
-    nil))
+    []))
 
 (defn resolve-kettle-path
   "Replaces common Kettle directory variables with the absolute path of the current file's directory."
@@ -47,16 +47,18 @@
                             #"(?i)\$\{Internal\.(Entry|Job|Workflow|Transformation)\.(Current|Filename|Descriptor)\.Directory\}"
                             parent-path)))
 
+(defn resolve-workflow-root
+  "Replaces KETTLE_WORKFLOW_ROOT variable with the assigned argument."
+  [path workflow-root]
+  (clojure.string/replace path "${KETTLE_WORKFLOW_ROOT}" workflow-root))
+
 (defn resolve-path
   "Resolves a raw file path (possibly containing Kettle variables or relative references)
   against the current file directory and the workflow root."
   [raw-path current-file-dir workflow-root]
-  (let [path-with-vars (resolve-kettle-path raw-path current-file-dir)
-        f (clojure.java.io/file path-with-vars)]
-    (if (.isAbsolute f)
-      f
-      (let [base-dir (or current-file-dir workflow-root)]
-        (clojure.java.io/file base-dir path-with-vars)))))
+  (let [path-with-vars (resolve-kettle-path raw-path current-file-dir)]
+    (clojure.java.io/file (resolve-workflow-root path-with-vars workflow-root))))
+
 (defn scan-file
   "Recursively scans a Kettle job (.kjb) or transformation (.ktr) file.
   Tracks visited files to avoid circular reference loops.
@@ -67,40 +69,42 @@
     (cond
       (contains? visited abs-path)
       (do
-        (println (str indent "- [Already Scanned] " (.getName file)))
+        ;;(println (str indent "- [Already Scanned] " (.getName file)))
+        visited)
+
+      (and (not (clojure.string/ends-with? (clojure.string/lower-case abs-path) ".kjb"))
+          (not (clojure.string/ends-with? (clojure.string/lower-case abs-path) ".ktr")))
+      (do
+        ;;(println (str indent "- [Unsupported Type] " (.getName file) " (Path: " abs-path ")"))
         visited)
 
       (not (.exists file))
       (do
-        (println (str indent "- [Missing File] " (.getName file) " (Path: " abs-path ")"))
+        (println (str indent "- [❗Missing File] " (.getName file) " (Path: " abs-path ")"))
         visited)
 
       :else
-      (let [is-kjb? (clojure.string/ends-with? (clojure.string/lower-case abs-path) ".kjb")
-            is-ktr? (clojure.string/ends-with? (clojure.string/lower-case abs-path) ".ktr")]
-        (if (not (or is-kjb? is-ktr?))
-          (do
-            (println (str indent "- [Unsupported Type] " (.getName file) " (Path: " abs-path ")"))
-            visited)
-          (do
-            (println (str indent "- " (.getName file) " (" abs-path ")"))
-            (let [new-visited (conj visited abs-path)
-                  xml-root (try
-                             (clojure.xml/parse file)
-                             (catch Exception e
-                               (println (str indent "  [Error parsing XML: " (.getMessage e) "]"))
-                               nil))]
-              (if xml-root
-                (let [raw-filenames (extract-filenames xml-root)
-                      current-dir (.getParentFile file)]
-                  (reduce
-                    (fn [v raw-fn]
-                      (println (str indent "  -> Found reference: " raw-fn))
-                      (let [resolved-file (resolve-path raw-fn current-dir workflow-root)]
-                        (scan-file resolved-file workflow-root v (inc depth))))
-                    new-visited
-                    raw-filenames))
-                new-visited))))))))
+      (do
+        (println (str indent "- " (.getName file) " (" abs-path ")"))
+        (let [new-visited (conj visited abs-path)
+              xml-root (try
+                         (clojure.xml/parse file)
+                         (catch Exception e
+                           (println (str indent "  [Error parsing XML: " (.getMessage e) "]"))
+                           nil))]
+          (if xml-root
+            (let [raw-filenames (extract-filenames xml-root)
+                  current-dir (.getParentFile file)]
+              (reduce
+                (fn [v raw-fn]
+                  (if (not (clojure.string/ends-with? (clojure.string/lower-case raw-fn) ".csv"))
+                    ;;(println (str indent "  -> Found reference: " raw-fn))
+                    (let [resolved-file (resolve-path raw-fn current-dir workflow-root)]
+                      (scan-file resolved-file workflow-root v (inc depth)))
+                    v))
+                new-visited
+                raw-filenames))
+            new-visited))))))
 
 (defn check-and-parse
   "Starts the recursive check from the initial TARGET-KJB file."
