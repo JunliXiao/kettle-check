@@ -2,3 +2,5 @@
 .clj-kondo/
 .idea/
 *.iml
+
+target/
