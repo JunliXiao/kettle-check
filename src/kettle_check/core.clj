@@ -1,12 +1,24 @@
 (ns kettle-check.core
   (:require [clojure.xml]
             [clojure.java.io]
-            [clojure.string])
-  (:gen-class))
+            [clojure.string]
+            [jansi-clj.core :as ansi])
+  (:gen-class)
+  (:import (java.util.regex Matcher)))
 
 ;; Define variables for the program as requested
 (def KETTLE-WORKFLOW-ROOT "E:/kettle-etl-workflow_MSSQL")
 (def TARGET-KJB "E:\\kettle-etl-workflow_MSSQL\\control\\ETL_C_RERUN.kjb")
+
+(defn trace-color
+  "Create a string styled for trace messages."
+  [str]
+  (ansi/fg-rgb 150 150 150 str))
+
+(defn err-color
+  "Create a string styled for error messages."
+  [str]
+  (ansi/fg-rgb 250 27 63 str))
 
 (defn filename-tag?
   "Checks if a given tag is a :filename tag (case-insensitive keyword or string check)."
@@ -41,7 +53,7 @@
   (let [parent-path (if current-file-dir
                       (-> (.getAbsolutePath (clojure.java.io/file current-file-dir))
                           (clojure.string/replace "\\" "/")
-                          (java.util.regex.Matcher/quoteReplacement))
+                          (Matcher/quoteReplacement))
                       "")]
     (clojure.string/replace path
                             #"(?i)\$\{Internal\.(Entry|Job|Workflow|Transformation)\.(Current|Filename|Descriptor)\.Directory\}"
@@ -80,17 +92,17 @@
 
       (not (.exists file))
       (do
-        (println (str indent "- [❗Missing File] " (.getName file) " (Path: " abs-path ")"))
+        (println (err-color (str indent "- [!! Missing File !!] " (.getName file) " (Path: " abs-path ")")))
         visited)
 
       :else
       (do
-        (println (str indent "- " (.getName file) " (" abs-path ")"))
+        (println (trace-color (str indent "- " (.getName file) " (" abs-path ")")))
         (let [new-visited (conj visited abs-path)
               xml-root (try
                          (clojure.xml/parse file)
                          (catch Exception e
-                           (println (str indent "  [Error parsing XML: " (.getMessage e) "]"))
+                           (println (err-color (str indent "  [Error parsing XML: " (.getMessage e) "]")))
                            nil))]
           (if xml-root
             (let [raw-filenames (extract-filenames xml-root)
@@ -122,10 +134,10 @@
     (println "--------------------------------")
     (cond
       (not is-entry-kjb?)
-      (println "Error: The target entry file is not a .kjb file.")
+      (println (err-color "Error: The target entry file is not a .kjb file."))
 
       (not (.exists resolved-file))
-      (println "Error: The target entry file does not exist.")
+      (println (err-color "Error: The target entry file does not exist."))
 
       :else
       (do
